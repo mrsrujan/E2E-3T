@@ -1,0 +1,18 @@
+# Headless service — required by the StatefulSet for stable network identity.
+apiVersion: v1
+kind: Service
+metadata:
+  name: yelb-db
+  namespace: three-tier
+  labels:
+    app: yelb-db
+spec:
+  type: ClusterIP
+  clusterIP: None
+  selector:
+    app: yelb-db
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+      protocol: TCP

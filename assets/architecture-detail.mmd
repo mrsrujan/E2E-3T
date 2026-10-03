@@ -1,0 +1,93 @@
+%% Detailed architecture — E2E-3T
+%% Shows: Terraform layers, namespaces, services, probes, IRSA, data flow,
+%% and the GitOps/CI build loop.
+%% See docs/architecture.md for the rendered version with context.
+
+flowchart TB
+    user([👤 User browser])
+    gh[("GitHub<br/>mrsrujan/E2E-3T<br/>main")]
+
+    subgraph TF["terraform/ · 3 layers · apply in order"]
+        direction LR
+        tfA["foundation<br/>VPC · EKS · nodegroup<br/>ECR · IRSA OIDC"]
+        tfB["cluster-addons<br/>EBS CSI · ALB Ctrl<br/>Jenkins · ArgoCD · Apps"]
+        tfC["gateway<br/>Gateway API CRDs<br/>Gateway resource"]
+        tfA --> tfB --> tfC
+    end
+
+    subgraph AWS["AWS · us-east-1 · account 640584914236"]
+        direction TB
+
+        subgraph VPC["VPC 10.0.0.0/16 · 3 AZ"]
+            direction TB
+            subgraph PUB["Public subnets"]
+                alb["ALB · yelb-gateway<br/>listener :80"]
+                nat["NAT Gateway"]
+            end
+            subgraph PRIV["Private subnets · 2× t3.medium nodes"]
+                direction TB
+
+                subgraph NS1["ns: three-tier"]
+                    direction TB
+                    hr["HTTPRoute → yelb-gateway"]
+                    ui["yelb-ui × 2<br/>:80 nginx<br/>liveness: GET /"]
+                    app["yelb-appserver × 2<br/>:4567 Sinatra<br/>liveness: TCP"]
+                    db[("yelb-db · StatefulSet<br/>:5432 Postgres<br/>liveness: pg_isready")]
+                    redis[("redis-server<br/>:6379")]
+                end
+
+                subgraph NSARGO["ns: argocd"]
+                    argo["ArgoCD controller<br/>Applications:<br/>• yelb-ui<br/>• yelb-appserver<br/>• yelb-db<br/>• yelb-redis<br/>automated + prune + selfHeal"]
+                end
+
+                subgraph NSJEN["ns: jenkins"]
+                    jenk["Jenkins (Helm)<br/>Jenkinsfile-UI<br/>Jenkinsfile-Appserver<br/>Jenkinsfile-DB"]
+                end
+
+                subgraph NSSYS["ns: kube-system"]
+                    albc["AWS LB Controller<br/>+ IRSA"]
+                    csi["EBS CSI Driver<br/>+ IRSA → gp3 default SC"]
+                end
+            end
+        end
+
+        ebs[("EBS gp3 · 10 Gi<br/>yelb-db PVC")]
+        ecr[("Private ECR<br/>yelb-ui · yelb-appserver · yelb-db<br/>IMMUTABLE tags · scan on push")]
+        iam["IRSA Roles<br/>• ebs-csi<br/>• alb-controller"]
+    end
+
+    %% User traffic path
+    user ==> alb
+    alb ==> hr
+    hr ==> ui
+    ui -- "/api proxy" --> app
+    app --> db
+    app --> redis
+    db -. PVC .-> ebs
+
+    %% CI → GitOps loop
+    jenk -- "1 · docker build" --> ecr
+    jenk -- "2 · git push<br/>(bump image tag)" --> gh
+    gh -- "3 · watch" --> argo
+    argo -- "4 · kubectl apply" --> NS1
+    ecr -. "5 · image pull" .-> ui
+    ecr -. "5 · image pull" .-> app
+    ecr -. "5 · image pull" .-> db
+
+    %% Provisioning
+    TF -. provisions .-> VPC
+    TF -. provisions .-> ecr
+    TF -. provisions .-> iam
+    TF -. installs .-> argo
+    TF -. installs .-> jenk
+    albc -- controls --> alb
+    csi -. provisions .-> ebs
+
+    classDef tf fill:#f3e5f5,stroke:#6a1b9a,color:#4a148c
+    classDef cloud fill:#fff8e1,stroke:#f9a825,color:#333
+    classDef ns fill:#e3f2fd,stroke:#1565c0,color:#0d47a1
+    classDef store fill:#ede7f6,stroke:#5e35b1,color:#311b92
+    class TF tf
+    class AWS,VPC,PUB,PRIV cloud
+    class NS1,NSARGO,NSJEN,NSSYS ns
+    class ecr,ebs,gh,iam store

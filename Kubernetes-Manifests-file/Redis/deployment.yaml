@@ -1,0 +1,45 @@
+# Redis is upstream — no fork, no Jenkins build, no ECR push.
+# It holds Yelb's page-view counter; data is intentionally ephemeral.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis-server
+  namespace: three-tier
+  labels:
+    app: redis-server
+    tier: cache
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis-server
+  template:
+    metadata:
+      labels:
+        app: redis-server
+        tier: cache
+    spec:
+      containers:
+        - name: redis-server
+          image: redis:7.2-alpine
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 6379
+              name: redis
+          resources:
+            requests:
+              cpu: 50m
+              memory: 32Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          readinessProbe:
+            tcpSocket:
+              port: 6379
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: 6379
+            initialDelaySeconds: 15
+            periodSeconds: 20

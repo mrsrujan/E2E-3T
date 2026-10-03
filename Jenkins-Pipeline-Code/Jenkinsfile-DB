@@ -1,0 +1,70 @@
+// yelb-db is a Postgres image with a schema init script. No SonarQube /
+// OWASP / Trivy FS stages — there's effectively no code to scan beyond the
+// Dockerfile. Keeps the pipeline fast.
+pipeline {
+    agent any
+    environment  {
+        AWS_ACCOUNT_ID      = credentials('ACCOUNT_ID')
+        AWS_DEFAULT_REGION  = 'us-east-1'
+        AWS_ECR_REPO_NAME   = 'yelb-db'
+        COMPONENT_DIR       = 'Application-Code/yelb-db'
+        MANIFEST_DIR        = 'Kubernetes-Manifests-file/DB'
+        MANIFEST_FILE       = 'statefulset.yaml'
+        REPOSITORY_URI      = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/"
+        GIT_REPO_NAME       = 'E2E-3T'
+        GIT_USER_NAME       = 'mrsrujan'
+    }
+    stages {
+        stage('Cleaning Workspace') {
+            steps { cleanWs() }
+        }
+        stage('Checkout from Git') {
+            steps {
+                git credentialsId: 'GITHUB', url: "https://github.com/${GIT_USER_NAME}/${GIT_REPO_NAME}.git", branch: 'main'
+            }
+        }
+        stage('Docker Image Build') {
+            steps {
+                script {
+                    dir("${COMPONENT_DIR}") {
+                        sh 'docker system prune -f'
+                        sh 'docker container prune -f'
+                        sh "docker build -t ${AWS_ECR_REPO_NAME} ."
+                    }
+                }
+            }
+        }
+        stage('ECR Image Pushing') {
+            steps {
+                script {
+                    sh 'aws ecr get-login-password --region ${AWS_DEFAULT_REGION} | docker login --username AWS --password-stdin ${REPOSITORY_URI}'
+                    sh "docker tag ${AWS_ECR_REPO_NAME} ${REPOSITORY_URI}${AWS_ECR_REPO_NAME}:${BUILD_NUMBER}"
+                    sh "docker push ${REPOSITORY_URI}${AWS_ECR_REPO_NAME}:${BUILD_NUMBER}"
+                }
+            }
+        }
+        stage('TRIVY Image Scan') {
+            steps {
+                sh "trivy image ${REPOSITORY_URI}${AWS_ECR_REPO_NAME}:${BUILD_NUMBER} > trivyimage.txt"
+            }
+        }
+        stage('Update Deployment file') {
+            steps {
+                dir("${MANIFEST_DIR}") {
+                    withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
+                        sh '''
+                            git config user.email "mr.srujan@gmail.com"
+                            git config user.name "mrsrujan"
+                            imageTag=$(grep -oP "(?<=${AWS_ECR_REPO_NAME}:)[^ ]+" ${MANIFEST_FILE})
+                            echo "Current tag: $imageTag -> New tag: ${BUILD_NUMBER}"
+                            sed -i "s|${AWS_ECR_REPO_NAME}:${imageTag}|${AWS_ECR_REPO_NAME}:${BUILD_NUMBER}|" ${MANIFEST_FILE}
+                            git add ${MANIFEST_FILE}
+                            git commit -m "ci(yelb-db): bump image to build ${BUILD_NUMBER}"
+                            git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME}.git HEAD:main
+                        '''
+                    }
+                }
+            }
+        }
+    }
+}

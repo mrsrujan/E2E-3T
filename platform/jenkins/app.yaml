@@ -1,0 +1,48 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: jenkins
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://charts.jenkins.io
+    chart: jenkins
+    # Chart 5.9.65 ships Jenkins core 2.568.3 which satisfies every plugin's
+    # minimum requirement at time of writing. Bump when plugin-rot breaks sync.
+    targetRevision: 5.9.65
+    helm:
+      releaseName: jenkins
+      values: |
+        controller:
+          componentName: "jenkins-controller"
+          admin:
+            # TODO: rotate before any public exposure. Keep demo creds obvious.
+            password: "admin"
+          # Trimmed to fit on a single c7i-flex.large alongside ArgoCD + ALB.
+          resources:
+            requests:
+              cpu: "300m"
+              memory: "768Mi"
+            limits:
+              cpu: "1500m"
+              memory: "1536Mi"
+          serviceType: ClusterIP
+          servicePort: 8080
+          # Rely on the ArgoCD-managed gp3 StorageClass.
+        persistence:
+          enabled: true
+          storageClass: gp3
+          size: "8Gi"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: jenkins
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

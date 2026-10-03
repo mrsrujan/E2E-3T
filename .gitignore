@@ -1,0 +1,33 @@
+# Local .terraform directories
+.terraform/
+
+# By-product files
+.terraform.tfstate.lock.info
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+
+# Exclude sensitive variables and data files
+*.tfvars
+*.tfvars.json
+*.auto.tfvars
+*.auto.tfvars.json
+
+# Local override files
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Execution plans
+*.tfplan
+
+# AWS CLI / SDK credentials and config overrides
+.aws/
+credentials
+localstack/
+
+# OS metadata
+.DS_Store
+Thumbs.db

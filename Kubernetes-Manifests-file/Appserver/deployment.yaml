@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: yelb-appserver
+  namespace: three-tier
+  labels:
+    app: yelb-appserver
+    tier: backend
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: yelb-appserver
+  template:
+    metadata:
+      labels:
+        app: yelb-appserver
+        tier: backend
+    spec:
+      containers:
+        - name: yelb-appserver
+          image: 640584914236.dkr.ecr.us-east-1.amazonaws.com/yelb-appserver:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 4567
+              name: http
+          env:
+            - name: RACK_ENV
+              value: custom
+            - name: YELB_DB_SERVER_ENDPOINT
+              value: yelb-db
+            - name: REDIS_SERVER_ENDPOINT
+              value: redis-server
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          readinessProbe:
+            tcpSocket:
+              port: 4567
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: 4567
+            initialDelaySeconds: 30
+            periodSeconds: 20

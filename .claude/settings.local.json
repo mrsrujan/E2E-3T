@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git ls-remote *)",
+      "Bash(terraform fmt *)",
+      "Bash(terraform init *)",
+      "Bash(terraform validate *)",
+      "Bash(file \"C:/Projects/Temp/gitops/E2E-3T/assets/\"*)",
+      "Bash(helm repo *)",
+      "Bash(helm search *)"
+    ]
+  }
+}

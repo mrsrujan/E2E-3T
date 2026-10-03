@@ -1,0 +1,21 @@
+controller:
+  componentName: "jenkins-controller"
+  
+  # Correct updated syntax for admin password
+  admin:
+    password: "admin"
+  
+  resources:
+    requests:
+      cpu: "500m"
+      memory: "1024Mi"
+    limits:
+      cpu: "2000m"
+      memory: "2048Mi"
+
+  serviceType: ClusterIP
+  servicePort: 8080
+
+persistence:
+  enabled: true
+  size: "8Gi"

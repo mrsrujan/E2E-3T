@@ -1,0 +1,17 @@
+# Local state (should always use S3 backend; this is defense in depth)
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+
+# Variable files with real values
+terraform.tfvars
+*.auto.tfvars
+
+# Terraform cache / plans
+.terraform/
+.terraform.lock.hcl
+*.tfplan
+
+# OS cruft
+.DS_Store
+Thumbs.db

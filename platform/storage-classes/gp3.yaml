@@ -1,0 +1,17 @@
+# gp3 default StorageClass. ArgoCD recreates this if deleted.
+# Note: the EBS CSI addon ships a gp2 StorageClass marked default — Terraform
+# patches that annotation off in terraform/cluster-addons/ebs-csi.tf so this
+# gp3 wins the "default" slot.
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: gp3
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "true"
+provisioner: ebs.csi.aws.com
+volumeBindingMode: WaitForFirstConsumer
+reclaimPolicy: Delete
+allowVolumeExpansion: true
+parameters:
+  type: gp3
+  encrypted: "true"

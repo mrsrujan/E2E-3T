@@ -1,120 +1,112 @@
-# #TWSThreeTierAppChallenge
+# E2E-3T — Three-Tier App on EKS with GitOps
 
-## Overview
-This repository hosts the `#TWSThreeTierAppChallenge` for the TWS community. 
-The challenge involves deploying a Three-Tier Web Application using ReactJS, NodeJS, and MongoDB, with deployment on AWS EKS. Participants are encouraged to deploy the application, add creative enhancements, and submit a Pull Request (PR). Merged PRs will earn exciting prizes!
+Deploy the **Yelb** 3-tier app on AWS EKS. CI via Jenkins (in-cluster), CD via ArgoCD, ingress via Gateway API. Infrastructure as Code via Terraform (3 layered modules).
 
+## Deployment paths
 
-## Application Code
-The `Application-Code` directory contains the source code for the Three-Tier Web Application. Dive into this directory to explore the frontend and backend implementations.
+Two complete, step-by-step deployment guides are in [`docs/`](docs/):
 
-## Jenkins Pipeline Code
-In the `Jenkins-Pipeline-Code` directory, you'll find Jenkins pipeline scripts. These scripts automate the CI/CD process, ensuring smooth integration and deployment of your application.
+| Path                                               | When to use                                                                                 |
+|----------------------------------------------------|---------------------------------------------------------------------------------------------|
+| [docs/deploy-terraform.md](docs/deploy-terraform.md) | **Recommended.** Fully automated: `./bootstrap.sh && ./apply-all.sh` and you're done.       |
+| [docs/deploy-manual.md](docs/deploy-manual.md)       | Learning / audit path. Uses the AWS Console wherever possible; CLI only when console can't. |
 
-## Jenkins Server Terraform
-Explore the `Jenkins-Server-TF` directory to find Terraform scripts for setting up the Jenkins Server on AWS. These scripts simplify the infrastructure provisioning process.
+## Repository layout
 
-## Kubernetes Manifests Files
-The `Kubernetes-Manifests-Files` directory holds Kubernetes manifests for deploying your application on AWS EKS. Understand and customize these files to suit your project needs.
-
-## Project Details
-🛠️ **Tools Explored:**
-- Terraform & AWS CLI for AWS infrastructure
-- Jenkins, Sonarqube, Terraform, Kubectl, and more for CI/CD setup
-- Helm, Prometheus, and Grafana for Monitoring
-- ArgoCD for GitOps practices
-
-🚢 **High-Level Overview:**
-- IAM User setup & Terraform magic on AWS
-- Jenkins deployment with AWS integration
-- EKS Cluster creation & Load Balancer configuration
-- Private ECR repositories for secure image management
-- Helm charts for efficient monitoring setup
-- GitOps with ArgoCD - the cherry on top!
-
-📈 **The journey covered everything from setting up tools to deploying a Three-Tier app, ensuring data persistence, and implementing CI/CD pipelines.**
-
-### Step 1: IAM Configuration
-- Create a user `eks-admin` with `AdministratorAccess`.
-- Generate Security Credentials: Access Key and Secret Access Key.
-
-### Step 2: EC2 Setup
-- Launch an Ubuntu instance in your favourite region (eg. region `us-west-2`).
-- SSH into the instance from your local machine.
-
-### Step 3: Install AWS CLI v2
-``` shell
-curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-sudo apt install unzip
-unzip awscliv2.zip
-sudo ./aws/install -i /usr/local/aws-cli -b /usr/local/bin --update
-aws configure
+```
+E2E-3T/
+├── Application-Code/            # Yelb source (forked from mreferre/yelb)
+│   ├── yelb-ui/                 # Angular + nginx
+│   ├── yelb-appserver/          # Ruby + Sinatra
+│   └── yelb-db/                 # Postgres image with seed SQL
+├── Kubernetes-Manifests-file/   # Deployed by ArgoCD
+│   ├── UI/                      # Deployment + Service + HTTPRoute
+│   ├── Appserver/               # Deployment + Service
+│   ├── DB/                      # StatefulSet + headless Service (EBS gp3 PVC)
+│   └── Redis/                   # Deployment + Service (upstream redis:7.2-alpine)
+├── Jenkins-Pipeline-Code/       # One Jenkinsfile per buildable component
+│   ├── Jenkinsfile-UI
+│   ├── Jenkinsfile-Appserver
+│   └── Jenkinsfile-DB
+├── Jenkins/
+│   └── jenkins-values.yaml      # Helm values for in-cluster Jenkins
+├── terraform/                   # 3-layer IaC
+│   ├── foundation/              # VPC, EKS, nodegroup, ECR, IRSA OIDC
+│   ├── cluster-addons/          # EBS CSI, ALB controller, Jenkins, ArgoCD
+│   └── gateway/                 # Gateway API CRDs + Gateway resource
+└── docs/
+    ├── deploy-terraform.md
+    └── deploy-manual.md
 ```
 
-### Step 4: Install Docker
-``` shell
-sudo apt-get update
-sudo apt install docker.io
-docker ps
-sudo chown $USER /var/run/docker.sock
+## Architecture
+
+![High-level architecture](assets/architecture-high-level.png)
+
+High-level + detailed diagrams with narration: **[docs/architecture.md](docs/architecture.md)**.
+
+ASCII quick-glance:
+
+```
+                       ┌─────────────────────────────────────┐
+   Internet ──▶ ALB ──▶│  EKS cluster (private subnets)      │
+                       │                                     │
+                       │  ns: three-tier                     │
+                       │   ├─ yelb-ui       (Deployment)     │
+                       │   ├─ yelb-appserver(Deployment)     │
+                       │   ├─ yelb-db       (StatefulSet+EBS)│
+                       │   └─ redis-server  (Deployment)     │
+                       │                                     │
+                       │  ns: argocd   — reconciles manifests│
+                       │  ns: jenkins  — builds, pushes ECR  │
+                       └─────────────────────────────────────┘
+                                  │                 │
+                                  ▼                 ▼
+                             Private ECR       GitHub (this repo)
 ```
 
-### Step 5: Install kubectl
-``` shell
-curl -o kubectl https://amazon-eks.s3.us-west-2.amazonaws.com/1.19.6/2021-01-05/bin/linux/amd64/kubectl
-chmod +x ./kubectl
-sudo mv ./kubectl /usr/local/bin
-kubectl version --short --client
-```
+**Flow:** Jenkins builds image → pushes to ECR → bumps image tag in Git → ArgoCD detects change → syncs to cluster.
 
-### Step 6: Install eksctl
-``` shell
-curl --silent --location "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
-sudo mv /tmp/eksctl /usr/local/bin
-eksctl version
-```
+## Quickstart (Terraform path)
 
-### Step 7: Setup EKS Cluster
-``` shell
-eksctl create cluster --name three-tier-cluster --region us-west-2 --node-type t2.medium --nodes-min 2 --nodes-max 2
-aws eks update-kubeconfig --region us-west-2 --name three-tier-cluster
+```bash
+# One-time: provision S3 + DynamoDB for Terraform remote state
+cd terraform && ./bootstrap.sh
+
+# Copy and edit terraform.tfvars in each layer
+for d in foundation cluster-addons gateway; do
+  cp $d/terraform.tfvars.example $d/terraform.tfvars
+done
+
+# Apply all layers (foundation ~15 min, addons ~5 min, gateway ~2 min)
+./apply-all.sh
+
+# Configure kubectl and verify
+aws eks update-kubeconfig --region us-east-1 --name three-tier-cluster
 kubectl get nodes
+kubectl -n argocd get applications
+kubectl -n three-tier get pods
 ```
 
-### Step 8: Run Manifests
-``` shell
-kubectl create namespace workshop
-kubectl apply -f .
-kubectl delete -f .
+See [docs/deploy-terraform.md](docs/deploy-terraform.md) for the full guide including Jenkins wiring, teardown order, and troubleshooting.
+
+## Prerequisites
+
+- AWS account + IAM user with `AdministratorAccess` for initial apply
+- Local tools: AWS CLI 2.15+, Terraform 1.6+, kubectl 1.28+, Helm 3.12+
+- A region with EKS (this project defaults to `us-east-1`)
+
+## Notes
+
+- **Jenkins has moved in-cluster.** The old `Jenkins-Server-TF/` (standalone EC2) is **deprecated** — delete it once you've migrated.
+- **`ingress.yaml` is gone.** Routing is now Gateway API (`Gateway` in `terraform/gateway/`, `HTTPRoute` in `Kubernetes-Manifests-file/UI/`).
+- **MongoDB is gone.** The old app was React + Node + Mongo; Yelb uses Postgres + Redis.
+- ArgoCD Applications default to the branch `main` of `https://github.com/mrsrujan/E2E-3T.git`. Fork it and change `argocd_repo_url` in `terraform/cluster-addons/terraform.tfvars`.
+
+## Cleanup
+
+```bash
+cd terraform && ./destroy-all.sh
 ```
 
-### Step 9: Install AWS Load Balancer
-``` shell
-curl -O https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.5.4/docs/install/iam_policy.json
-aws iam create-policy --policy-name AWSLoadBalancerControllerIAMPolicy --policy-document file://iam_policy.json
-eksctl utils associate-iam-oidc-provider --region=us-west-2 --cluster=three-tier-cluster --approve
-eksctl create iamserviceaccount --cluster=three-tier-cluster --namespace=kube-system --name=aws-load-balancer-controller --role-name AmazonEKSLoadBalancerControllerRole --attach-policy-arn=arn:aws:iam::626072240565:policy/AWSLoadBalancerControllerIAMPolicy --approve --region=us-west-2
-```
-
-### Step 10: Deploy AWS Load Balancer Controller
-``` shell
-sudo snap install helm --classic
-helm repo add eks https://aws.github.io/eks-charts
-helm repo update eks
-helm install aws-load-balancer-controller eks/aws-load-balancer-controller -n kube-system --set clusterName=my-cluster --set serviceAccount.create=false --set serviceAccount.name=aws-load-balancer-controller
-kubectl get deployment -n kube-system aws-load-balancer-controller
-kubectl apply -f full_stack_lb.yaml
-```
-
-### Cleanup
-- To delete the EKS cluster:
-``` shell
-eksctl delete cluster --name three-tier-cluster --region us-west-2
-```
-- To clean up rest of the stuff and not incure any cost
-```
-Stop or Terminate the EC2 instance created in step 2.
-Delete the Load Balancer created in step 9 and 10.
-Go to EC2 console, access security group section and delete security groups created in previous steps
-```
-
+The script tears down layers in reverse dependency order. See the "Teardown" section in `docs/deploy-terraform.md` for the console checklist of common leaks (orphaned ALBs, EBS volumes, SGs).

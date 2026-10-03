@@ -1,0 +1,64 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: yelb-db
+  namespace: three-tier
+  labels:
+    app: yelb-db
+    tier: data
+spec:
+  serviceName: yelb-db
+  replicas: 1
+  selector:
+    matchLabels:
+      app: yelb-db
+  template:
+    metadata:
+      labels:
+        app: yelb-db
+        tier: data
+    spec:
+      containers:
+        - name: yelb-db
+          image: 640584914236.dkr.ecr.us-east-1.amazonaws.com/yelb-db:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5432
+              name: postgres
+          env:
+            # Yelb-db image seeds the schema via /docker-entrypoint-initdb.d
+            # on an empty data dir. Trust auth is fine for a demo on a
+            # ClusterIP service; tighten for anything real.
+            - name: POSTGRES_HOST_AUTH_METHOD
+              value: trust
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 1Gi
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "postgres"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", "postgres"]
+            initialDelaySeconds: 30
+            periodSeconds: 20
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: gp3
+        resources:
+          requests:
+            storage: 10Gi
