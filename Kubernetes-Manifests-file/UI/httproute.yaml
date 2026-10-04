@@ -5,11 +5,11 @@ apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: yelb-ui
-  namespace: three-tier
+  namespace: 3-tier
 spec:
   parentRefs:
     - name: yelb-gateway
-      namespace: three-tier
+      namespace: 3-tier
   rules:
     - matches:
         - path:

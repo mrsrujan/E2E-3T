@@ -4,7 +4,7 @@ Two views of the same system. **High-level** for a 10-second overview; **detail*
 
 Both diagrams are kept as Mermaid sources in `assets/architecture-*.mmd` so they're text-diffable in PRs. GitHub renders them inline below.
 
-> The historical GIF from the upstream fork is at [`assets/legacy-three-tier.gif`](../assets/legacy-three-tier.gif) — it describes the pre-migration stack (React + Node + Mongo on EC2-hosted Jenkins) and is kept for reference only.
+> The historical GIF from the upstream fork is at [`assets/legacy-3-tier.gif`](../assets/legacy-3-tier.gif) — it describes the pre-migration stack (React + Node + Mongo on EC2-hosted Jenkins) and is kept for reference only.
 
 ---
 
@@ -27,7 +27,7 @@ flowchart LR
         gw["ALB<br/>via Gateway API"]
         ecr[("Private ECR<br/>yelb-ui · yelb-appserver · yelb-db")]
 
-        subgraph EKS["EKS: three-tier-cluster"]
+        subgraph EKS["EKS: 3-tier-cluster"]
             direction TB
             yelb["Yelb<br/>(ui · appserver · db · redis)"]
             cd["ArgoCD<br/>auto-sync"]
@@ -97,7 +97,7 @@ flowchart TB
             subgraph PRIV["Private subnets · 2× t3.medium nodes"]
                 direction TB
 
-                subgraph NS1["ns: three-tier"]
+                subgraph NS1["ns: 3-tier"]
                     direction TB
                     hr["HTTPRoute → yelb-gateway"]
                     ui["yelb-ui × 2<br/>:80 nginx<br/>liveness: GET /"]

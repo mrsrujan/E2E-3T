@@ -1,23 +1,33 @@
 # ---------------------------------------------------------------------------
 # Gateway API CRDs (standard channel) + the actual Gateway resource.
 # HTTPRoutes live in the manifests repo and are synced by ArgoCD.
+#
+# Gateway API is NOT distributed as a Helm chart — only as a multi-doc YAML
+# in GitHub releases. We fetch the raw YAML via the http provider, split it
+# into individual CRDs with kubectl_file_documents, then apply each one.
 # ---------------------------------------------------------------------------
 
-resource "helm_release" "gateway_api_crds" {
-  name             = "gateway-api"
-  repository       = "https://kubernetes-sigs.github.io/gateway-api"
-  chart            = "gateway-api"
-  version          = var.gateway_api_version
-  namespace        = "gateway-system"
-  create_namespace = true
+data "http" "gateway_api_crds" {
+  url = "https://github.com/kubernetes-sigs/gateway-api/releases/download/v${var.gateway_api_version}/standard-install.yaml"
+}
+
+data "kubectl_file_documents" "gateway_api_crds" {
+  content = data.http.gateway_api_crds.response_body
+}
+
+resource "kubectl_manifest" "gateway_api_crds" {
+  for_each         = data.kubectl_file_documents.gateway_api_crds.manifests
+  yaml_body        = each.value
+  wait             = false
+  wait_for_rollout = false
 }
 
 # The ALB implementation of GatewayClass is provided by the AWS Load Balancer
 # Controller (installed in cluster-addons layer). It auto-creates an `alb`
 # GatewayClass once CRDs are present.
 
-resource "kubernetes_manifest" "yelb_gateway" {
-  manifest = {
+resource "kubectl_manifest" "yelb_gateway" {
+  yaml_body = yamlencode({
     apiVersion = "gateway.networking.k8s.io/v1"
     kind       = "Gateway"
     metadata = {
@@ -35,9 +45,12 @@ resource "kubernetes_manifest" "yelb_gateway" {
         }
       }]
     }
-  }
+  })
 
-  depends_on = [helm_release.gateway_api_crds]
+  wait             = false
+  wait_for_rollout = false
+
+  depends_on = [kubectl_manifest.gateway_api_crds]
 }
 
 output "gateway_address_cmd" {

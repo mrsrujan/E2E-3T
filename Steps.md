@@ -51,7 +51,7 @@ ASCII quick-glance:
                        ┌─────────────────────────────────────┐
    Internet ──▶ ALB ──▶│  EKS cluster (private subnets)      │
                        │                                     │
-                       │  ns: three-tier                     │
+                       │  ns: 3-tier                     │
                        │   ├─ yelb-ui       (Deployment)     │
                        │   ├─ yelb-appserver(Deployment)     │
                        │   ├─ yelb-db       (StatefulSet+EBS)│
@@ -82,10 +82,10 @@ done
 ./apply-all.sh
 
 # Configure kubectl and verify
-aws eks update-kubeconfig --region us-east-1 --name three-tier-cluster
+aws eks update-kubeconfig --region us-east-1 --name 3-tier-cluster
 kubectl get nodes
 kubectl -n argocd get applications
-kubectl -n three-tier get pods
+kubectl -n 3-tier get pods
 ```
 
 See [docs/deploy-terraform.md](docs/deploy-terraform.md) for the full guide including Jenkins wiring, teardown order, and troubleshooting.

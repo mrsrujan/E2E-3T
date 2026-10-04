@@ -12,7 +12,7 @@ End-to-end AWS infrastructure for the Yelb 3-tier app on EKS, provisioned by Ter
                        ┌─────────────────────────────────────┐
    Internet ──▶ ALB ──▶│  EKS cluster (private subnets)      │
                        │                                     │
-                       │  ns: three-tier                     │
+                       │  ns: 3-tier                     │
                        │   ├─ yelb-ui       (Deployment)     │
                        │   ├─ yelb-appserver(Deployment)     │
                        │   ├─ yelb-db       (StatefulSet+EBS)│
@@ -140,7 +140,7 @@ provider "aws" {
 
 ```hcl
 variable "region"        { type = string, default = "us-east-1" }
-variable "cluster_name"  { type = string, default = "three-tier-cluster" }
+variable "cluster_name"  { type = string, default = "3-tier-cluster" }
 variable "cluster_version" { type = string, default = "1.28" }
 variable "vpc_cidr"      { type = string, default = "10.0.0.0/16" }
 variable "node_instance_type" { type = string, default = "t3.medium" }
@@ -238,7 +238,7 @@ Expect ~15 minutes (EKS control plane dominates).
 ### 1.6 Verify
 
 ```bash
-aws eks update-kubeconfig --region us-east-1 --name three-tier-cluster
+aws eks update-kubeconfig --region us-east-1 --name 3-tier-cluster
 kubectl get nodes
 kubectl get ns
 ```
@@ -422,7 +422,7 @@ resource "kubernetes_manifest" "yelb_app" {
       }
       destination = {
         server    = "https://kubernetes.default.svc"
-        namespace = "three-tier"
+        namespace = "3-tier"
       }
       syncPolicy = {
         automated = { prune = true, selfHeal = true }
@@ -451,7 +451,7 @@ kubectl -n kube-system  get deploy aws-load-balancer-controller
 kubectl -n argocd       get pods
 kubectl -n jenkins      get pods
 kubectl -n argocd       get applications
-kubectl -n three-tier   get pods     # first sync may take ~2 min
+kubectl -n 3-tier   get pods     # first sync may take ~2 min
 ```
 
 ---
@@ -482,7 +482,7 @@ resource "kubernetes_manifest" "yelb_gateway" {
     kind       = "Gateway"
     metadata = {
       name      = "yelb-gateway"
-      namespace = "three-tier"
+      namespace = "3-tier"
     }
     spec = {
       gatewayClassName = "alb"
@@ -509,7 +509,7 @@ terraform apply
 ### 3.4 Get the public URL
 
 ```bash
-kubectl -n three-tier get gateway yelb-gateway \
+kubectl -n 3-tier get gateway yelb-gateway \
     -o jsonpath='{.status.addresses[0].value}'
 ```
 

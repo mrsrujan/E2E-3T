@@ -12,7 +12,7 @@ variable "state_bucket" {
 variable "gateway_namespace" {
   description = "Namespace where the Gateway resource lives"
   type        = string
-  default     = "three-tier"
+  default     = "3-tier"
 }
 
 variable "gateway_api_version" {

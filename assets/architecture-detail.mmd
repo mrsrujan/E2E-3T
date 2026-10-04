@@ -27,7 +27,7 @@ flowchart TB
             subgraph PRIV["Private subnets · 2× t3.medium nodes"]
                 direction TB
 
-                subgraph NS1["ns: three-tier"]
+                subgraph NS1["ns: 3-tier"]
                     direction TB
                     hr["HTTPRoute → yelb-gateway"]
                     ui["yelb-ui × 2<br/>:80 nginx<br/>liveness: GET /"]

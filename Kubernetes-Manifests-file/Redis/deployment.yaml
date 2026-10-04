@@ -4,7 +4,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: redis-server
-  namespace: three-tier
+  namespace: 3-tier
   labels:
     app: redis-server
     tier: cache

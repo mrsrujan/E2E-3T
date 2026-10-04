@@ -13,7 +13,7 @@ spec:
     path: Kubernetes-Manifests-file/Appserver
   destination:
     server: https://kubernetes.default.svc
-    namespace: three-tier
+    namespace: 3-tier
   syncPolicy:
     automated:
       prune: true

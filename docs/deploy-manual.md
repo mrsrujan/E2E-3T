@@ -54,7 +54,7 @@ Sections marked **[CLI]** below cannot be done through the AWS Console.
 **VPC → Create VPC → VPC and more**
 
 Fill in:
-- Name tag auto-generation: `three-tier`
+- Name tag auto-generation: `3-tier`
 - IPv4 CIDR: `10.0.0.0/16`
 - Number of Availability Zones: **3**
 - Number of public subnets: **3**
@@ -97,14 +97,14 @@ Note the registry URI shown in the list — format `<ACCOUNT_ID>.dkr.ecr.us-east
 Follow the wizard across four screens.
 
 ### 4.1 Configure cluster
-- Name: `three-tier-cluster`
+- Name: `3-tier-cluster`
 - Kubernetes version: **1.28**
 - Cluster service role → **Create recommended role** (if first time). This opens IAM in a new tab — accept the defaults (`AmazonEKSClusterPolicy`), name it `eksClusterRole`, then come back and refresh.
 - Secrets encryption: off (for demo)
 - Tags: `env=demo`
 
 ### 4.2 Specify networking
-- VPC: the `three-tier` VPC from Step 2
+- VPC: the `3-tier` VPC from Step 2
 - Subnets: select **all 3 private** and **all 3 public**
 - Security groups: leave default
 - Cluster endpoint access: **Public** (tighten later with CIDRs)
@@ -129,7 +129,7 @@ Takes ~12 minutes. The page auto-refreshes.
 
 ## Step 5 — Create a managed node group (console)
 
-**EKS → Clusters → three-tier-cluster → Compute tab → Add node group**
+**EKS → Clusters → 3-tier-cluster → Compute tab → Add node group**
 
 ### 5.1 Configure node group
 - Name: `primary`
@@ -159,7 +159,7 @@ Create. Takes ~5 minutes.
 The console cannot write to your local kubeconfig.
 
 ```bash
-aws eks update-kubeconfig --region us-east-1 --name three-tier-cluster
+aws eks update-kubeconfig --region us-east-1 --name 3-tier-cluster
 kubectl get nodes
 ```
 
@@ -169,7 +169,7 @@ You should see 2 nodes `Ready`.
 
 ## Step 7 — Create the IAM OIDC provider for IRSA (console)
 
-**EKS → Clusters → three-tier-cluster → Overview tab**
+**EKS → Clusters → 3-tier-cluster → Overview tab**
 
 Copy the **OpenID Connect provider URL** (looks like `https://oidc.eks.us-east-1.amazonaws.com/id/XXXXXXXXXX`).
 
@@ -229,7 +229,7 @@ helm repo add eks https://aws.github.io/eks-charts
 helm repo update
 helm install aws-load-balancer-controller eks/aws-load-balancer-controller \
     -n kube-system \
-    --set clusterName=three-tier-cluster \
+    --set clusterName=3-tier-cluster \
     --set serviceAccount.create=false \
     --set serviceAccount.name=aws-load-balancer-controller
 
@@ -346,7 +346,7 @@ spec:
     path: Kubernetes-Manifests-file/${comp}
   destination:
     server: https://kubernetes.default.svc
-    namespace: three-tier
+    namespace: 3-tier
   syncPolicy:
     automated: { prune: true, selfHeal: true }
     syncOptions: [ "CreateNamespace=true" ]
@@ -358,7 +358,7 @@ kubectl -n argocd get applications
 
 First sync takes ~1–2 min. Watch:
 ```bash
-kubectl -n three-tier get pods -w
+kubectl -n 3-tier get pods -w
 ```
 
 ---
@@ -373,7 +373,7 @@ apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: yelb-gateway
-  namespace: three-tier
+  namespace: 3-tier
 spec:
   gatewayClassName: alb
   listeners:
@@ -390,7 +390,7 @@ The `HTTPRoute` for yelb-ui lives in `Kubernetes-Manifests-file/UI/` and is alre
 
 Get the public URL:
 ```bash
-kubectl -n three-tier get gateway yelb-gateway \
+kubectl -n 3-tier get gateway yelb-gateway \
     -o jsonpath='{.status.addresses[0].value}'
 ```
 
@@ -428,8 +428,8 @@ In the Jenkins UI (http://localhost:8080):
 - [ ] `kubectl -n kube-system get deploy aws-load-balancer-controller` → 1/1
 - [ ] `kubectl get storageclass` → `gp3 (default)`
 - [ ] `kubectl -n argocd get applications` → all 4 `Synced` + `Healthy`
-- [ ] `kubectl -n three-tier get pods` → ui, appserver, db, redis all `Running`
-- [ ] `kubectl -n three-tier get pvc` → yelb-db PVC `Bound`
+- [ ] `kubectl -n 3-tier get pods` → ui, appserver, db, redis all `Running`
+- [ ] `kubectl -n 3-tier get pvc` → yelb-db PVC `Bound`
 - [ ] Gateway address resolves to the Yelb UI
 - [ ] Clicking a vote updates both the chart and the "page views" counter
 
@@ -439,15 +439,15 @@ In the Jenkins UI (http://localhost:8080):
 
 **Reverse order of creation.** Skipping this leaves orphaned ALBs and EBS volumes that bill forever.
 
-1. **Delete the Gateway first (CLI):** `kubectl -n three-tier delete gateway yelb-gateway` — this triggers ALB deletion.
-2. **Delete the Yelb PVC:** `kubectl -n three-tier delete pvc --all` — triggers EBS volume deletion.
-3. EKS → Clusters → three-tier-cluster → Compute → delete the `primary` node group.
-4. EKS → Clusters → three-tier-cluster → Delete cluster.
+1. **Delete the Gateway first (CLI):** `kubectl -n 3-tier delete gateway yelb-gateway` — this triggers ALB deletion.
+2. **Delete the Yelb PVC:** `kubectl -n 3-tier delete pvc --all` — triggers EBS volume deletion.
+3. EKS → Clusters → 3-tier-cluster → Compute → delete the `primary` node group.
+4. EKS → Clusters → 3-tier-cluster → Delete cluster.
 5. ECR → delete the three repositories.
 6. IAM → delete `AmazonEKSLoadBalancerControllerRole`, `AmazonEKS_EBS_CSI_DriverRole`, `eksClusterRole`, `eks-node-role`.
-7. VPC → delete `three-tier` VPC (this cascades subnets, route tables, NAT, IGW).
+7. VPC → delete `3-tier` VPC (this cascades subnets, route tables, NAT, IGW).
 8. EC2 → **check for orphaned**: Load Balancers, Target Groups, Volumes, Security Groups starting with `k8s-`.
-9. CloudWatch → Log groups → delete `/aws/eks/three-tier-cluster/*`.
+9. CloudWatch → Log groups → delete `/aws/eks/3-tier-cluster/*`.
 
 ---
 

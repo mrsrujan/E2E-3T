@@ -1,5 +1,5 @@
 region       = "us-east-1"
 state_bucket = "e2e3t-tfstate-640584914236"
 
-gateway_namespace   = "three-tier"
+gateway_namespace   = "3-tier"
 gateway_api_version = "1.0.0"

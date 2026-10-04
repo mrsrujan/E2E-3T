@@ -11,7 +11,7 @@ flowchart LR
         gw["ALB<br/>via Gateway API"]
         ecr[("Private ECR<br/>yelb-ui · yelb-appserver · yelb-db")]
 
-        subgraph EKS["EKS: three-tier-cluster"]
+        subgraph EKS["EKS: 3-tier-cluster"]
             direction TB
             yelb["Yelb<br/>(ui · appserver · db · redis)"]
             cd["ArgoCD<br/>auto-sync"]

@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: yelb-db
-  namespace: three-tier
+  namespace: 3-tier
   labels:
     app: yelb-db
     tier: data

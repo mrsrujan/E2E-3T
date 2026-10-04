@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: yelb-appserver
-  namespace: three-tier
+  namespace: 3-tier
   labels:
     app: yelb-appserver
     tier: backend
